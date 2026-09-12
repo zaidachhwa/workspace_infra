@@ -45,12 +45,16 @@ network policies, or one network per workspace, would close this).
   frontend JavaScript, so an XSS bug can't steal them outright.
 - Refresh tokens are stored server-side as SHA-256 hashes, not the raw token
   — a database leak alone can't be replayed as a valid session.
-- **Every workspace operation checks ownership.** `getOwnedWorkspace` queries
-  by `{_id, user}` together — a workspace ID alone is never sufficient
-  authorization. A request for another user's workspace gets a **404, not
-  403** — deliberately, so the API never confirms whether an ID even exists
-  for someone who doesn't own it. Verified directly with a real second
-  account against production, not just reasoned about.
+- **Every workspace operation checks ownership or membership.** `getOwnedWorkspace`
+  (`{_id, user}`) gates owner-only actions (delete, invite/remove members);
+  `getAccessibleWorkspace` (`{_id, $or: [{user}, {members}]}`) gates everything
+  else — a workspace ID alone is never sufficient authorization either way. A
+  total stranger gets **404, not 403** — deliberately, so the API never
+  confirms whether an ID even exists for someone unrelated to it. A
+  legitimate collaborator attempting an owner-only action gets 403 instead,
+  since they're clearly authorized to use the workspace, just not for that.
+  Verified directly with real accounts against production, not just reasoned
+  about.
 
 ## Secrets
 
@@ -61,9 +65,12 @@ network policies, or one network per workspace, would close this).
   creation/start). The list-environment-variables endpoint returns key names
   only, never values.
 - The generated code-server login password (`accessPassword`) is treated
-  differently — it's a platform-managed credential for entering your own
-  workspace, not user secret material, so it *is* decrypted back and returned
-  to the owning user (needed to actually use the IDE).
+  differently — it's a platform-managed credential for entering the
+  workspace, not user secret material, so it *is* decrypted back and
+  returned to anyone with access (owner or collaborator — needed to actually
+  use the IDE). Same logic applies to environment variable values injected
+  into the container: a collaborator has the same runtime access to them as
+  the owner does, by design (see "Sharing" in `architecture.md`).
 - JWT secrets and the env-encryption key live only in `backend/.env`
   (`.gitignore`d, never committed) — generated per-deployment, never reused
   between local dev and production.
