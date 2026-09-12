@@ -122,13 +122,21 @@ already-running target container, since one already exists at that point.
 
 ## Two-tier templates
 
-Both current templates (Node.js, Full Stack) are built from the same base
-(`infra/docker/workspace/Dockerfile`) — code-server + Node 22 + git, on top
-of the official `codercom/code-server` image (Debian 13 "trixie"). Full Stack
-extends that base (`infra/docker/workspace-fullstack/Dockerfile`) by adding a
-real `mongod` that starts alongside code-server in the same container (see
-`start.sh` there) — deliberately *not* a separate companion container, to
-keep the "one container = one workspace" model intact everywhere else in the
+Both current templates ("General Purpose" and "Full Stack (Node + Python +
+Mongo)") are built from the same base (`infra/docker/workspace/Dockerfile`)
+— code-server + Node 22 + Python + git + build tools, on top of the official
+`codercom/code-server` image (Debian 13 "trixie"). "General Purpose" is
+deliberately the pre-selected default so most people never have to think
+about which template to pick — see the design discussion this came from for
+why a single broad base beats either "no templates" or a long list of
+narrow ones, given workspace containers run non-root with no capabilities
+(no `apt-get install` after creation — whatever isn't in the image, you
+can't add yourself, short of what a language's own package manager, like
+`npm`/`pip` in user-space, allows). Full Stack extends that base
+(`infra/docker/workspace-fullstack/Dockerfile`) by adding a real `mongod`
+that starts alongside code-server in the same container (see `start.sh`
+there) — deliberately *not* a separate companion container, to keep the
+"one container = one workspace" model intact everywhere else in the
 codebase (a single `containerId` per workspace, one Traefik route, one
 volume). Mongo's data lives inside the same project volume
 (`.mongodb-data/`), so it persists exactly like the rest of the workspace.
@@ -139,6 +147,27 @@ binaries for Debian 13 yet as of when this was built — only their Debian 12
 the trixie base; this was verified directly, not assumed. If MongoDB ships
 trixie support later, the apt source line in the fullstack Dockerfile could
 be updated, but there's no urgency — the current setup works.
+
+## Baseline editor config (settings.json + extensions)
+
+The base image also bakes in a common code-server starting point: a
+`settings.json` copied to `/home/coder/.local/share/code-server/User/settings.json`,
+and ~15 extensions pre-installed via `code-server --install-extension` at
+build time. This is a *starting point*, not a lock — anyone can still
+change their own settings or install more extensions within their own
+workspace afterward; it just means nobody starts from a completely bare
+editor.
+
+**Non-obvious thing worth knowing**: code-server (like every VS Code fork —
+VSCodium, Theia, etc.) cannot use Microsoft's official VS Code Marketplace;
+Microsoft's terms restrict it to Microsoft-branded builds. code-server uses
+[Open VSX](https://open-vsx.org/) instead, a separate open marketplace with
+good but not 100% coverage — notably `ms-python.vscode-pylance` is
+Microsoft-marketplace-only and isn't there at all (confirmed by a failed
+install attempt, not assumed); `ms-python.python` is used instead, with
+less rich IntelliSense as a tradeoff. Every extension actually baked in was
+individually verified to install successfully from Open VSX before being
+added to the Dockerfile.
 
 ## What's deliberately NOT built
 
