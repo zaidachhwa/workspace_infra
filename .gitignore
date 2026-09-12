@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+node_modules/
+
+# Separately tracked repos (workspace_backend, workspace_frontend) —
+# not part of this (workspace_infra) repo.
+/backend/
+/frontend/
+Cloud_Workspace_MVP_Technical_Specification_Claude_Code.docx
+.code-review-graph/

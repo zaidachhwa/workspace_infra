@@ -1,0 +1,68 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: cw_mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - platform
+
+  backend:
+    build:
+      context: ./backend
+    container_name: cw_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4001}:4000"
+    volumes:
+      # Control-plane access to manage workspace containers — this is the
+      # trusted backend, never a workspace container itself (see spec §11/§18).
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID}"
+    depends_on:
+      - mongo
+    networks:
+      - platform
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: cw_frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3005}:3000"
+
+  proxy:
+    image: traefik:v3.7
+    container_name: cw_proxy
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.network=cloudworkspace-proxy
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports:
+      - "127.0.0.1:${PROXY_PORT:-8091}:80"
+    environment:
+      # Traefik's bundled Docker client can reject very new Docker Engine API
+      # versions unless pinned — check `docker version --format '{{.Server.APIVersion}}'`.
+      - DOCKER_API_VERSION=${TRAEFIK_DOCKER_API_VERSION}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cloudworkspace-proxy
+
+networks:
+  platform:
+    name: cloudworkspace-platform
+  cloudworkspace-proxy:
+    name: cloudworkspace-proxy
+
+volumes:
+  mongo_data:

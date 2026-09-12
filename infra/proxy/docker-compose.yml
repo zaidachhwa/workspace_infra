@@ -1,0 +1,28 @@
+services:
+  proxy:
+    image: traefik:v3.7
+    container_name: cw_proxy
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.network=cloudworkspace-proxy
+      # Only containers with traefik.enable=true get a route — workspace
+      # containers opt in explicitly, nothing is exposed by accident.
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports:
+      - "${PROXY_HTTP_PORT:-80}:80"
+    environment:
+      # Traefik's bundled Docker client defaults to an old API version that
+      # very new Docker Engine releases reject outright. Pin it to (or below)
+      # this host's actual API version — check with `docker version --format
+      # '{{.Server.APIVersion}}'` and adjust per deployment target.
+      - DOCKER_API_VERSION=1.55
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cloudworkspace-proxy
+
+networks:
+  cloudworkspace-proxy:
+    external: true
