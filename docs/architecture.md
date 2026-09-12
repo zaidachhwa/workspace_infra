@@ -48,10 +48,34 @@ Workspace containers currently share this one network with each other (not
 yet isolated from one another) — see `docs/security.md` for that as a known
 gap.
 
+## Sharing (Tier 1: shared access, not per-person isolation)
+
+A workspace can have collaborators (`members`) alongside its owner. This is
+deliberately **one shared container/environment**, not one per person — git
+config, environment variables, installed extensions, everything inside the
+workspace is genuinely shared, the same way a physical pair-programming box
+would be. Building per-person isolation would mean one container per
+(workspace, person) pair instead of one per workspace — a materially bigger
+architecture change, not attempted here.
+
+Authorization has two tiers, both in `workspace.service.js`:
+- `getOwnedWorkspace` — strict owner match. Used for: delete, invite/remove members.
+- `getAccessibleWorkspace` — owner OR member. Used for: everything else
+  (start/stop/restart, env vars, git import, snapshots, rename).
+
+A stranger with no relationship to the workspace gets 404 either way (never
+confirms the workspace exists). A legitimate member attempting an
+owner-only action gets 403 instead — they're clearly authorized to use the
+workspace, just not for that specific action.
+
+Inviting someone requires them to already have a platform account — there's
+no email/token invite flow for people without one yet.
+
 ## Data model (MongoDB)
 
 - **User** — email, bcrypt password hash, refresh token hashes (for logout/rotation).
-- **Workspace** — owner, name, slug, status, template ref, containerId,
+- **Workspace** — owner (`user`), an optional `members` list (collaborators —
+  see "Sharing" below), name, slug, status, template ref, containerId,
   accessDomain, resource limits, encrypted environment variables,
   accessPasswordEncrypted (the code-server login password).
 - **WorkspaceEvent** — append-only audit log (created/started/stopped/deleted/
