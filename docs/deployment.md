@@ -106,6 +106,7 @@ if it ever recurs, this is the manual fix.
 | `ENV_ENCRYPTION_KEY` | 32-byte hex — encrypts workspace environment variables at rest. Generate fresh per deployment; **do not lose this** — losing it makes existing encrypted env vars unrecoverable. |
 | `BASE_WORKSPACE_DOMAIN` | The real domain workspace subdomains are built from. |
 | `WORKSPACE_PROTOCOL` | `https` in production, `http` for local dev without TLS. |
+| `ADMIN_EMAILS` | Comma-separated. Matching accounts auto-promote to admin on register/login — set to your own email to bootstrap the first admin. |
 
 ## Running tests
 

@@ -73,7 +73,9 @@ no email/token invite flow for people without one yet.
 
 ## Data model (MongoDB)
 
-- **User** — email, bcrypt password hash, refresh token hashes (for logout/rotation).
+- **User** — email, bcrypt password hash, refresh token hashes (for
+  logout/rotation), `role` (user/admin, see "Admin & quotas" in
+  `security.md`), `workspaceQuota` (default 5), `disabled`.
 - **Workspace** — owner (`user`), an optional `members` list (collaborators —
   see "Sharing" below), name, slug, status, template ref, containerId,
   accessDomain, resource limits, encrypted environment variables,

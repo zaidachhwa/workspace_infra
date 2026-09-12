@@ -64,6 +64,24 @@ network policies, or one network per workspace, would close this).
   since they're clearly authorized to use the workspace, just not for that.
   Verified directly with real accounts against production, not just reasoned
   about.
+- **Admin role** is bootstrapped via an `ADMIN_EMAILS` env var (comma-separated)
+  — a matching account is auto-promoted on register or login, no manual DB
+  editing needed. It only ever promotes, never silently demotes: removing an
+  email from the list doesn't strip an existing admin's role. `requireAdmin`
+  does a real DB lookup (not just trusting the JWT's contents), so a role
+  change takes effect immediately rather than waiting for the current access
+  token to expire.
+- **Per-user workspace quota** (default 5, admin-adjustable) counts only
+  workspaces a user *owns* — being a collaborator on someone else's shared
+  workspace never counts against your own limit. Enforced retroactively: a
+  user already at/over a newly-lowered quota simply can't create more until
+  they delete some.
+- **Disabling a user** actively stops their currently-running workspaces, not
+  just future logins — otherwise an already-open browser session could keep
+  using a running workspace for up to the access token's remaining 15
+  minutes after being disabled. A disabled account's *current* token isn't
+  separately revoked, though — only the workspaces are stopped and future
+  logins rejected.
 
 ## Secrets
 
@@ -111,9 +129,6 @@ security audit run against the live server:
 - Prometheus and Grafana (from unrelated projects on the same shared server)
   are publicly reachable. Not this platform's containers, but worth knowing
   they're exposed on the same box.
-- No abuse/quota policy — a user could create unlimited workspaces up to
-  server capacity. Fine for a small trusted user base; not fine at
-  public-signup scale. (In progress — an admin-configurable per-user quota.)
 - No automated intrusion/anomaly monitoring beyond what the box's existing
   Monarx agent (unrelated to this platform) provides.
 
