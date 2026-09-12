@@ -45,6 +45,15 @@ network policies, or one network per workspace, would close this).
   frontend JavaScript, so an XSS bug can't steal them outright.
 - Refresh tokens are stored server-side as SHA-256 hashes, not the raw token
   — a database leak alone can't be replayed as a valid session.
+- The frontend silently refreshes an expired access token via one shared
+  axios interceptor (`frontend/src/services/axiosInstance.js`) rather than
+  bouncing the user to login every 15 minutes — this was broken for a while
+  (the refresh token existed but nothing ever called it); fixed and verified
+  with a real shortened-expiry test, including concurrent requests sharing
+  one in-flight refresh rather than racing.
+- `/auth/login` and `/auth/register` are rate limited per IP (10/15min and
+  5/hour respectively) — verified the limit actually triggers (429 after
+  the 10th attempt), not just configured and assumed.
 - **Every workspace operation checks ownership or membership.** `getOwnedWorkspace`
   (`{_id, user}`) gates owner-only actions (delete, invite/remove members);
   `getAccessibleWorkspace` (`{_id, $or: [{user}, {members}]}`) gates everything
@@ -102,11 +111,9 @@ security audit run against the live server:
 - Prometheus and Grafana (from unrelated projects on the same shared server)
   are publicly reachable. Not this platform's containers, but worth knowing
   they're exposed on the same box.
-- No rate limiting on auth endpoints (login/register) — brute-force
-  protection is not implemented.
 - No abuse/quota policy — a user could create unlimited workspaces up to
   server capacity. Fine for a small trusted user base; not fine at
-  public-signup scale.
+  public-signup scale. (In progress — an admin-configurable per-user quota.)
 - No automated intrusion/anomaly monitoring beyond what the box's existing
   Monarx agent (unrelated to this platform) provides.
 
